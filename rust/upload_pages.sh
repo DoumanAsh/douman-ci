@@ -73,8 +73,7 @@ function upload_pages() {
     cd out
 
     # If there are no changes to the compiled out (e.g. this is a README update) then just bail.
-    git diff --quiet
-    if [ $? = "0" ]; then
+    if [[ -z `git status --porcelain` ]]; then
         echo "No changes to the docs"
         return 0
     fi
