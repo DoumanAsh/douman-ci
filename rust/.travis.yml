@@ -75,7 +75,8 @@ after_script:
       if [ $exitCode -eq 0 ]; then
         # Success
 
-        bash ci/upload_rust_crate.sh
+        #source to set UPDATE_PAGES to true on crate upload
+        source ci/upload_rust_crate.sh
         bash ci/upload_pages.sh
 
       elif [ $exitCode -eq 1 ]; then
