@@ -4,7 +4,7 @@ function generate_index_redirect() {
     `IFS='/' read -a fields <<< "$TRAVIS_REPO_SLUG"`
     OWNER="${fields[0]}"
     REPO_NAME="${fields[1]}"
-    CRATE_NAME=`echo ${REPO_NAME} | sed "s/-/_/g"`
+    CRATE_NAME=`grep -oP 'name = "(.+)"' Cargo.toml | cut -d= -f2 | xargs`
 
     echo "<!DOCTYPE html>"
     echo "<html lang=\"en-US\">"
@@ -61,7 +61,7 @@ function upload_pages() {
     git checkout $BRANCH_NAME || git checkout --orphan $BRANCH_NAME
 
     # Clean out existing contents
-    rm -rf doc/
+    rm -rf *
     generate_index_redirect > index.html
 
     cd -

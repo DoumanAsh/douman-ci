@@ -17,7 +17,9 @@ function upload_rust_crate() {
     echo "Check if crate publish is required"
     cd $TRAVIS_BUILD_DIR
     # Check crate version
-    CRATE_VER=`cargo search lazy-bytes-cast | grep -oP "[0-9]\.[0-9]\.[0-9]"`
+    CRATE_NAME=`grep -oP 'name = "(.+)"' Cargo.toml | cut -d= -f2 | xargs`
+    echo "Crate '$CRATE_NAME'"
+    CRATE_VER=`cargo search $CRATE_NAME | grep -oP "[0-9]\.[0-9]\.[0-9]"`
     CURRENT_VER=`grep -oP "[0-9]\.[0-9]\.[0-9]" Cargo.toml`
     echo "Crate current version=${CRATE_VER}"
     echo "Repo current version=${CURRENT_VER}"

@@ -5,11 +5,11 @@ env:
       #Define CARGO_API(upload crate) && GIT_TOKEN(upload pages and releases)
 
       # Define to true to upload if cargo search will not find crate
-    - CARGO_UPLOAD_FIRST_TIME=false
+    - CARGO_UPLOAD_FIRST_TIME=true
       # Define default branch for docs
     - PAGES_BRANCH_NAME=gh-pages
       # Sets to true in case  of crate's version bump
-    - UPDATE_PAGES=true
+    - UPDATE_PAGES=false
 
 matrix:
   include:
