@@ -7,7 +7,13 @@ on:
         required: false
         type: string
         default: ""
-      with-valgrind:
+      # Enables valgrind
+      valgrind:
+        required: false
+        type: boolean
+        default: false
+      # Enables MIRI
+      miri:
         required: false
         type: boolean
         default: false
@@ -29,12 +35,13 @@ jobs:
              echo ::add-path::$HOME/.cargo/bin
         fi
     - name: Install Miri
+      if: inputs.miri != false
       run: |
         rustup toolchain install nightly
         rustup +nightly component add miri
 
     - name: Install Valgrind
-      if: inputs.with-valgrind != false
+      if: inputs.valgrind != false
       run: |
         sudo apt-get update
         sudo apt-get install -y valgrind
@@ -60,21 +67,21 @@ jobs:
       run: cargo test
 
     - name: Valgrind Test
-      if: inputs.with-valgrind != false && inputs.cargo-features != ''
+      if: inputs.valgrind != false && inputs.cargo-features != ''
       env:
         CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=full --error-exitcode=1"
       run: cargo test --release --features ${{ inputs.cargo-features }}
 
     - name: Valgrind Test
-      if: inputs.with-valgrind != false && inputs.cargo-features == ''
+      if: inputs.valgrind != false && inputs.cargo-features == ''
       env:
         CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=full --error-exitcode=1"
       run: cargo test --release
 
     - name: Miri Test
-      if: inputs.cargo-features != ''
+      if: inputs.miri != false && inputs.cargo-features != ''
       run: cargo +nightly miri test --features ${{ inputs.cargo-features }}
 
     - name: Miri Test
-      if: inputs.cargo-features == ''
+      if: inputs.miri != false && inputs.cargo-features == ''
       run: cargo +nightly miri test
