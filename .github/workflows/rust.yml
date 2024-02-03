@@ -7,6 +7,11 @@ on:
         required: false
         type: string
         default: ""
+      # Perform no features run
+      cargo-no-features:
+        required: false
+        type: boolean
+        default: false
       # Enables valgrind
       valgrind:
         required: false
@@ -21,9 +26,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
 
     steps:
+    - id: vars
+      env:
+        FEATURES: ${{ inputs.cargo-features }}
+      run: |
+        echo "::notice::Run with following features=$FEATURES"
+        OUTPUT=""
+        if [ -n "${FEATURES}" ]; then
+          OUTPUT="--features ${FEATURES}"
+        fi
+        echo "CARGO_ARGS=$OUTPUT" >> $GITHUB_OUTPUT
+
     - uses: actions/checkout@v4
 
     - name: Install Rust Unix
@@ -34,6 +49,7 @@ jobs:
              curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
              echo ::add-path::$HOME/.cargo/bin
         fi
+
     - name: Install Miri
       if: inputs.miri != false
       run: |
@@ -51,37 +67,22 @@ jobs:
         cargo --version
         rustc --version
 
+    - name: Check build no features
+      if: inputs.cargo-no-features == true
+      run: cargo clippy --no-default-features
+
     - name: Check build
-      run: cargo clippy
-
-    - name: Check build with features
-      if: inputs.cargo-features != ''
-      run: cargo clippy --features ${{ inputs.cargo-features }}
+      run: cargo clippy ${{ steps.vars.outputs.CARGO_ARGS }}
 
     - name: Test
-      if: inputs.cargo-features != ''
-      run: cargo test --features ${{ inputs.cargo-features }}
-
-    - name: Test
-      if: inputs.cargo-features == ''
-      run: cargo test
+      run: cargo test ${{ steps.vars.outputs.CARGO_ARGS }}
 
     - name: Valgrind Test
-      if: inputs.valgrind != false && inputs.cargo-features != ''
+      if: inputs.valgrind != false
       env:
         CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=full --error-exitcode=1"
-      run: cargo test --release --features ${{ inputs.cargo-features }}
-
-    - name: Valgrind Test
-      if: inputs.valgrind != false && inputs.cargo-features == ''
-      env:
-        CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=full --error-exitcode=1"
-      run: cargo test --release
+      run: cargo test --release ${{ steps.vars.outputs.CARGO_ARGS }}
 
     - name: Miri Test
-      if: inputs.miri != false && inputs.cargo-features != ''
-      run: cargo +nightly miri test --features ${{ inputs.cargo-features }}
-
-    - name: Miri Test
-      if: inputs.miri != false && inputs.cargo-features == ''
-      run: cargo +nightly miri test
+      if: inputs.miri != false
+      run: cargo +nightly miri test ${{ steps.vars.outputs.CARGO_ARGS }}
