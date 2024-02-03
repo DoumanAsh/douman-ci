@@ -22,6 +22,14 @@ on:
         required: false
         type: boolean
         default: false
+      miri_flags:
+        required: false
+        type: string
+        default: ''
+      miri_rust_flags:
+        required: false
+        type: string
+        default: ''
 
 jobs:
   build:
@@ -85,4 +93,7 @@ jobs:
 
     - name: Miri Test
       if: inputs.miri != false
+      env:
+        MIRIFLAGS: ${{ inputs.miri_flags }}
+        RUSTFLAGS: ${{ inputs.miri_rust_flags }}
       run: cargo +nightly miri test ${{ steps.vars.outputs.CARGO_ARGS }}
