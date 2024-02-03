@@ -1,23 +1,15 @@
 name: Rust
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - '.github/workflows/rust.yml'
-      - 'src/**.rs'
-      - 'tests/**.rs'
-      - 'Cargo.toml'
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches:
-      - '**'
-    paths:
-      - '.github/workflows/rust.yml'
-      - 'src/**.rs'
-      - 'tests/**.rs'
-      - 'Cargo.toml'
+  workflow_call:
+    inputs:
+      cargo-args:
+        required: false
+        type: string
+        default: ""
+      with-valgrind:
+        required: false
+        default: "false"
 
 jobs:
   build:
@@ -25,7 +17,7 @@ jobs:
     if: github.event.pull_request.draft == false
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Install Rust Unix
       run: |
@@ -39,10 +31,9 @@ jobs:
       run: |
         rustup toolchain install nightly
         rustup +nightly component add miri
-    - name: Rust Cache
-      uses: Swatinem/rust-cache@v2
 
     - name: Install Valgrind
+      if: inputs.with-valgrind != "false"
       run: |
         sudo apt-get update
         sudo apt-get install -y valgrind
@@ -53,17 +44,16 @@ jobs:
         rustc --version
 
     - name: Check build
-      run: cargo clippy
+      run: cargo clippy ${{ inputs.cargo-args }}
 
     - name: Test
-      run: cargo test
+      run: cargo test ${{ inputs.cargo-args }}
 
     - name: Valgrind Test
+      if: inputs.with-valgrind != "false"
       env:
         CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=full --error-exitcode=1"
-      run: cargo test --release
+      run: cargo test --release ${{ inputs.cargo-args }}
 
     - name: Miri Test
-      run: |
-          cargo +nightly miri test
-          cargo +nightly miri test --release
+      run: cargo +nightly miri test ${{ inputs.cargo-args }}
