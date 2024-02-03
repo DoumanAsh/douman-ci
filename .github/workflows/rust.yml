@@ -3,13 +3,14 @@ name: Rust
 on:
   workflow_call:
     inputs:
-      cargo-args:
+      cargo-features:
         required: false
         type: string
         default: ""
       with-valgrind:
         required: false
-        default: "false"
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -33,7 +34,7 @@ jobs:
         rustup +nightly component add miri
 
     - name: Install Valgrind
-      if: inputs.with-valgrind != "false"
+      if: inputs.with-valgrind != false
       run: |
         sudo apt-get update
         sudo apt-get install -y valgrind
@@ -44,16 +45,36 @@ jobs:
         rustc --version
 
     - name: Check build
-      run: cargo clippy ${{ inputs.cargo-args }}
+      run: cargo clippy
+
+    - name: Check build with features
+      if: inputs.cargo-features != ''
+      run: cargo clippy --features ${{ inputs.cargo-features }}
 
     - name: Test
-      run: cargo test ${{ inputs.cargo-args }}
+      if: inputs.cargo-features != ''
+      run: cargo test --features ${{ inputs.cargo-features }}
+
+    - name: Test
+      if: inputs.cargo-features == ''
+      run: cargo test
 
     - name: Valgrind Test
-      if: inputs.with-valgrind != "false"
+      if: inputs.with-valgrind != false && inputs.cargo-features != ''
       env:
         CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=full --error-exitcode=1"
-      run: cargo test --release ${{ inputs.cargo-args }}
+      run: cargo test --release --features ${{ inputs.cargo-features }}
+
+    - name: Valgrind Test
+      if: inputs.with-valgrind != false && inputs.cargo-features == ''
+      env:
+        CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=full --error-exitcode=1"
+      run: cargo test --release
 
     - name: Miri Test
-      run: cargo +nightly miri test ${{ inputs.cargo-args }}
+      if: inputs.cargo-features != ''
+      run: cargo +nightly miri test --features ${{ inputs.cargo-features }}
+
+    - name: Miri Test
+      if: inputs.cargo-features == ''
+      run: cargo +nightly miri test
