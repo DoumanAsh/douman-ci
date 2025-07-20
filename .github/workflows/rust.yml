@@ -93,7 +93,7 @@ jobs:
       if: inputs.valgrind != false
       env:
         CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=full --error-exitcode=1 ${{ inputs.valgrind_flags }}"
-      run: cargo test --release ${{ steps.vars.outputs.CARGO_ARGS }}
+      run: cargo test ${{ steps.vars.outputs.CARGO_ARGS }}
 
     - name: Miri Test
       if: inputs.miri != false
