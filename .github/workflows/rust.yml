@@ -7,6 +7,11 @@ on:
         required: false
         type: string
         default: ""
+      # Minimal rust version check
+      min-rustc-version:
+        required: false
+        type: string
+        default: ""
       # Perform no features run
       cargo-no-features:
         required: false
@@ -78,6 +83,12 @@ jobs:
       run: |
         cargo --version
         rustc --version
+
+    - name: Check ${{inputs.min-rustc-version}} rustc version
+      if: inputs.min-rustc-version != ''
+      run: |
+        rustup install ${{ inputs.min-rustc-version }}
+        cargo +${{ inputs.min-rustc-version }} check
 
     - name: Check build no features
       if: inputs.cargo-no-features == true
