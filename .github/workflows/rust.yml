@@ -3,6 +3,11 @@ name: Rust
 on:
   workflow_call:
     inputs:
+      # Array expression with quoted list of github runners
+      os-matrix:
+        required: false
+        type: string
+        default: '["ubuntu-latest"]'
       cargo-features:
         required: false
         type: string
@@ -42,30 +47,22 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: ${{ fromJSON(inputs.os-matrix) }}
+    runs-on: ${{ matrix.os }}
 
     steps:
     - id: vars
-      env:
-        FEATURES: ${{ inputs.cargo-features }}
+      if: inputs.cargo-features != ''
       run: |
-        echo "::notice::Run with following features=$FEATURES"
-        OUTPUT=""
-        if [ -n "${FEATURES}" ]; then
-          OUTPUT="--features ${FEATURES}"
-        fi
-        echo "CARGO_ARGS=$OUTPUT" >> $GITHUB_OUTPUT
+        echo "::notice::Run with following features=${{ inputs.cargo-features }}"
+        echo "CARGO_ARGS='--features ${{ inputs.cargo-features }}'" >> $GITHUB_OUTPUT
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
-    - name: Install Rust Unix
-      run: |
-        if rustup --version >/dev/null 2>&1; then
-            rustup update
-        else
-             curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
-             echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-        fi
+    - name: Check Rust installation is up to date
+      run: rustup update
 
     - name: Install Miri
       if: inputs.miri != false
@@ -74,7 +71,7 @@ jobs:
         rustup +nightly component add miri
 
     - name: Install Valgrind
-      if: inputs.valgrind != false
+      if: inputs.valgrind != false && runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y valgrind
@@ -101,7 +98,7 @@ jobs:
       run: cargo test ${{ steps.vars.outputs.CARGO_ARGS }}
 
     - name: Valgrind Test
-      if: inputs.valgrind != false
+      if: inputs.valgrind != false && runner.os == 'Linux'
       env:
         CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=full --error-exitcode=1 ${{ inputs.valgrind_flags }}"
       run: cargo test ${{ steps.vars.outputs.CARGO_ARGS }}
