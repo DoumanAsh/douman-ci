@@ -54,6 +54,7 @@ jobs:
 
     steps:
     - id: vars
+      name: Setup variables
       # $GITHUB_OUTPUT is env variable so powershell will have different way to access it
       # Use python to work it around
       shell: python
