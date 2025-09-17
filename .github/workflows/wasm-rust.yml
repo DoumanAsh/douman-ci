@@ -1,0 +1,88 @@
+name: Wasm Rust
+
+on:
+  workflow_call:
+    inputs:
+      cargo-features:
+        required: false
+        type: string
+        default: ""
+      # Additional arguments added to test invocation
+      cargo-test-args:
+        required: false
+        type: string
+        default: ""
+      # Perform no features run
+      cargo-no-features:
+        required: false
+        type: boolean
+        default: false
+      # Override build target (WASM is unstable target so you can expect it to be deprecated in future)
+      wasm-target:
+        required: false
+        type: string
+        default: 'wasm32-wasip1'
+      # Run additional test build with SIMD enabled
+      wasm-simd:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  wasm-test:
+    runs-on: ubuntu-latest
+    container: ghcr.io/webassembly/wasi-sdk
+
+    steps:
+    - id: vars
+      name: Setup variables
+      if: inputs.cargo-features != ''
+      run: |
+        echo "::notice::Run with following features=${{ inputs.cargo-features }}"
+        echo "CARGO_ARGS=--features ${{ inputs.cargo-features }}" >> $GITHUB_OUTPUT
+
+    - uses: actions/checkout@v5
+
+    - name: Ensure system dependencies
+      run: apt-get update && apt-get install -y curl xz-utils
+
+    - name: Install Rust Unix
+      run: |
+        if rustup --version >/dev/null 2>&1; then
+            rustup update
+        else
+             curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
+             echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        fi
+
+    - name: Rust version
+      run: |
+        cargo --version
+        rustc --version
+
+    - name: Install Wasi runtime
+      run: |
+        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v36.0.2/wasmtime-v36.0.2-x86_64-linux.tar.xz > wasmtime.tar.xz
+        mkdir $HOME/wasmtime
+        tar -xf wasmtime.tar.xz -C $HOME/wasmtime --strip-components 1
+        echo "$HOME/wasmtime/" >> $GITHUB_PATH
+        rustup target add ${{ inputs.wasm-target }}
+
+    - name: Check build no features
+      if: inputs.cargo-no-features == true
+      run: cargo check --no-default-features --target ${{ inputs.wasm-target }}
+
+    - name: Check build
+      run: cargo check ${{ steps.vars.outputs.CARGO_ARGS }} --target ${{ inputs.wasm-target }}
+
+    - name: Test
+      env:
+        CARGO_TARGET_WASM32_WASIP1_RUNNER: "wasmtime"
+      run: cargo test ${{ steps.vars.outputs.CARGO_ARGS }} --target ${{ inputs.wasm-target }} ${{ inputs.cargo-test-args }}
+
+    - name: Test with SIMD
+      if: inputs.wasm-simd == true
+      env:
+        CARGO_TARGET_WASM32_WASIP1_RUNNER: "wasmtime"
+        RUSTFLAGS: "-Ctarget-feature=+simd128"
+      run: cargo test ${{ steps.vars.outputs.CARGO_ARGS }} --target ${{ inputs.wasm-target }} ${{ inputs.cargo-test-args }}
