@@ -54,10 +54,15 @@ jobs:
 
     steps:
     - id: vars
+      # $GITHUB_OUTPUT is env variable so powershell will have different way to access it
+      # Use python to work it around
+      shell: python
       if: inputs.cargo-features != ''
       run: |
-        echo "::notice::Run with following features=${{ inputs.cargo-features }}"
-        echo "CARGO_ARGS=--features ${{ inputs.cargo-features }}" >> $GITHUB_OUTPUT
+        from os import environ
+        print("::notice::Run with following features=${{ inputs.cargo-features }}")
+        with open(environ['GITHUB_OUTPUT'], 'a') as github_output:
+          github_output.write("CARGO_ARGS=--features ${{ inputs.cargo-features }}\n")
 
     - uses: actions/checkout@v5
 
