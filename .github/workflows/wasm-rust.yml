@@ -7,26 +7,31 @@ on:
         required: false
         type: string
         default: ""
+        description: "Comma separated list of cargo features to enable"
       # Additional arguments added to test invocation
       cargo-test-args:
         required: false
         type: string
         default: ""
+        description: "Additional command line arguments to append to the test command invocation"
       # Perform no features run
       cargo-no-features:
         required: false
         type: boolean
         default: false
+        description: "Specifies whether to perform build with no default features in addition to default"
       # Override build target (WASM is unstable target so you can expect it to be deprecated in future)
       wasm-target:
         required: false
         type: string
         default: 'wasm32-wasip1'
+        description: "Rust target to build for. Default `wasm32-wasip1` which might be outdated in future"
       # Run additional test build with SIMD enabled
       wasm-simd:
         required: false
         type: boolean
         default: false
+        description: "Specifies whether to run additional test with wasm SIMD enabled"
 
 jobs:
   wasm-test:

@@ -8,42 +8,51 @@ on:
         required: false
         type: string
         default: '["ubuntu-latest"]'
+        description: "String containing OS matrix list"
       cargo-features:
         required: false
         type: string
         default: ""
+        description: "Comma separated list of cargo features to enable"
       # Minimal rust version check
       min-rustc-version:
         required: false
         type: string
         default: ""
+        description: "Specifies additional check to verify that code can be compiled with specific rust version"
       # Perform no features run
       cargo-no-features:
         required: false
         type: boolean
         default: false
+        description: "Specifies whether to perform build with no default features in addition to default"
       # Enables valgrind
       valgrind:
         required: false
         type: boolean
         default: false
+        description: "Specifies to run tests under Valgrind (Linux only)"
       valgrind_flags:
         required: false
         type: string
         default: ''
+        description: "Additional flags for valgrind run in addition to default `--leak-check=full --error-exitcode=1`"
       # Enables MIRI
       miri:
         required: false
         type: boolean
         default: false
+        description: "Specifies to run tests under MIRI (Can be very slow)"
       miri_flags:
         required: false
         type: string
         default: ''
+        description: "Additional flags to set under  MIRI run"
       miri_rust_flags:
         required: false
         type: string
         default: ''
+        description: "Additional rustc flags to set under MIRI run"
 
 jobs:
   build:
