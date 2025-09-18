@@ -34,7 +34,7 @@ on:
         description: "Specifies whether to run additional test with wasm SIMD enabled"
 
 jobs:
-  wasm-test:
+  check-rust-wasm:
     runs-on: ubuntu-latest
     container: ghcr.io/webassembly/wasi-sdk
 
