@@ -3,12 +3,11 @@ name: Rust
 on:
   workflow_call:
     inputs:
-      # Array expression with quoted list of github runners
-      os-matrix:
+      runs-on:
         required: false
         type: string
-        default: '["ubuntu-latest"]'
-        description: "String containing OS matrix list"
+        default: 'ubuntu-latest'
+        description: "Defines type of machine to run on. Defaults to ubuntu-latest"
       cargo-features:
         required: false
         type: string
@@ -55,11 +54,8 @@ on:
         description: "Additional rustc flags to set under MIRI run"
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: ${{ fromJSON(inputs.os-matrix) }}
-    runs-on: ${{ matrix.os }}
+  check-rust:
+    runs-on: ${{ inputs.runs-on }}
 
     steps:
     - id: vars
