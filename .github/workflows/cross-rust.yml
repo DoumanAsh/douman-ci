@@ -1,0 +1,82 @@
+name: Cross Rust
+
+on:
+  workflow_call:
+    inputs:
+      cargo-features:
+        required: false
+        type: string
+        default: ""
+        description: "Comma separated list of cargo features to enable"
+      cargo-test-args:
+        required: false
+        type: string
+        default: ""
+        description: "Additional command line arguments to append to the test command invocation"
+      cargo-no-features:
+        required: false
+        type: boolean
+        default: false
+        description: "Specifies whether to perform build with no default features in addition to default"
+      cargo-target:
+        required: true
+        type: string
+        description: "Rust target to build for"
+      cargo-test-debug:
+        required: false
+        type: boolean
+        description: "Specifies whether to run tests under debug profile. Defaults true"
+        default: true
+      cargo-test-release:
+        required: false
+        type: boolean
+        description: "Specifies whether to run tests under release profile. Defaults false"
+        default: false
+
+jobs:
+  check-rust-cross:
+    runs-on: ubuntu-latest
+
+    steps:
+    - id: vars
+      name: Setup variables
+      if: inputs.cargo-features != ''
+      run: |
+        echo "::notice::Run with following features=${{ inputs.cargo-features }}"
+        echo "CARGO_ARGS=--features ${{ inputs.cargo-features }}" >> $GITHUB_OUTPUT
+
+    - uses: actions/checkout@v5
+
+    - name: Install Rust Unix
+      run: |
+        if rustup --version >/dev/null 2>&1; then
+            rustup update
+        else
+             curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
+             echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        fi
+
+    - name: Rust version
+      run: |
+        cargo --version
+        rustc --version
+
+    - name: Install Cross
+      run: |
+        curl -L https://github.com/cross-rs/cross/releases/download/v0.2.5/cross-x86_64-unknown-linux-musl.tar.gz | tar xfz -
+        cp cross $HOME/.cargo/bin
+
+    - name: Check build no features
+      if: inputs.cargo-no-features == true
+      run: cross build --no-default-features --target ${{ inputs.cargo-target }}
+
+    - name: Check build
+      run: cross build ${{ steps.vars.outputs.CARGO_ARGS }} --target ${{ inputs.cargo-target }}
+
+    - name: Test (debug)
+      if: inputs.cargo-test-debug == true
+      run: cross test ${{ steps.vars.outputs.CARGO_ARGS }} --target ${{ inputs.cargo-target }} ${{ inputs.cargo-test-args }}
+
+    - name: Test (release)
+      if: inputs.cargo-test-release == true
+      run: cross test ${{ steps.vars.outputs.CARGO_ARGS }} --release --target ${{ inputs.cargo-target }} ${{ inputs.cargo-test-args }}
