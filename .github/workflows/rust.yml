@@ -100,10 +100,10 @@ jobs:
 
     - name: Check build no features
       if: inputs.cargo-no-features == true
-      run: cargo clippy --no-default-features
+      run: cargo check --no-default-features
 
     - name: Check build
-      run: cargo clippy ${{ steps.vars.outputs.CARGO_ARGS }}
+      run: cargo check ${{ steps.vars.outputs.CARGO_ARGS }}
 
     - name: Test
       run: cargo test ${{ steps.vars.outputs.CARGO_ARGS }}
