@@ -13,6 +13,12 @@ on:
         type: string
         default: ""
         description: "Comma separated list of cargo features to enable"
+      # Additional arguments added to test invocation
+      cargo-test-args:
+        required: false
+        type: string
+        default: ""
+        description: "Additional command line arguments to append to the test command invocation"
       # Minimal rust version check
       min-rustc-version:
         required: false
@@ -106,17 +112,17 @@ jobs:
       run: cargo check ${{ steps.vars.outputs.CARGO_ARGS }}
 
     - name: Test
-      run: cargo test ${{ steps.vars.outputs.CARGO_ARGS }}
+      run: cargo test ${{ steps.vars.outputs.CARGO_ARGS }} ${{ inputs.cargo-test-args }}
 
     - name: Valgrind Test
       if: inputs.valgrind != false && runner.os == 'Linux'
       env:
         CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=full --error-exitcode=1 ${{ inputs.valgrind_flags }}"
-      run: cargo test ${{ steps.vars.outputs.CARGO_ARGS }}
+      run: cargo test ${{ steps.vars.outputs.CARGO_ARGS }} ${{ inputs.cargo-test-args }}
 
     - name: Miri Test
       if: inputs.miri != false
       env:
         MIRIFLAGS: ${{ inputs.miri_flags }}
         RUSTFLAGS: ${{ inputs.miri_rust_flags }}
-      run: cargo +nightly miri test ${{ steps.vars.outputs.CARGO_ARGS }}
+      run: cargo +nightly miri test ${{ steps.vars.outputs.CARGO_ARGS }} ${{ inputs.cargo-test-args }}
