@@ -13,6 +13,11 @@ on:
         type: string
         default: ""
         description: "Comma separated list of cargo features to enable"
+      cargo-test-run:
+        required: false
+        type: boolean
+        default: true
+        description: "Specifies whether to build and run tests"
       # Additional arguments added to test invocation
       cargo-test-args:
         required: false
@@ -112,6 +117,7 @@ jobs:
       run: cargo check ${{ steps.vars.outputs.CARGO_ARGS }}
 
     - name: Test
+      if: inputs.cargo-test-run == true
       run: cargo test ${{ steps.vars.outputs.CARGO_ARGS }} ${{ inputs.cargo-test-args }}
 
     - name: Valgrind Test
