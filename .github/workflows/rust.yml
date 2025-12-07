@@ -81,7 +81,7 @@ jobs:
         with open(environ['GITHUB_OUTPUT'], 'a') as github_output:
           github_output.write("CARGO_ARGS=--features ${{ inputs.cargo-features }}\n")
 
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - name: Check Rust installation is up to date
       run: rustup update

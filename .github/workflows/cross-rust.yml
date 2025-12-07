@@ -45,7 +45,7 @@ jobs:
         echo "::notice::Run with following features=${{ inputs.cargo-features }}"
         echo "CARGO_ARGS=--features ${{ inputs.cargo-features }}" >> $GITHUB_OUTPUT
 
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - name: Install Rust Unix
       run: |

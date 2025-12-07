@@ -46,7 +46,7 @@ jobs:
         echo "::notice::Run with following features=${{ inputs.cargo-features }}"
         echo "CARGO_ARGS=--features ${{ inputs.cargo-features }}" >> $GITHUB_OUTPUT
 
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - name: Ensure system dependencies
       run: apt-get update && apt-get install -y curl xz-utils
