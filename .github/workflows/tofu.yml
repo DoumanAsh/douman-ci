@@ -1,0 +1,91 @@
+name: Tofu
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+        description: "Defines type of machine to run on. Defaults to ubuntu-latest"
+      tofu_version:
+        required: false
+        type: string
+        default: ''
+        description: "Specifies opentofu version to use. Optional"
+      working-directory:
+        required: false
+        type: string
+        default: ''
+        description: "Specifies folder to test. Defaults to None"
+      modules-directory:
+        required: false
+        type: string
+        default: ''
+        description: "Specifies folder with modules to individually check. Defaults None"
+
+jobs:
+  check-tofu:
+    if: inputs.working-directory != ''
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ inputs.tofu_version }}
+      - name: Check fmt
+        working-directory: ${{ inputs.working-directory }}
+        run: tofu fmt -check
+      - name: Init providers
+        working-directory: ${{ inputs.working-directory }}
+        run: tofu init
+      - name: Validate module
+        working-directory: ${{ inputs.working-directory }}
+        run: tofu validate
+
+  determine-changed-modules:
+    if: inputs.modules-directory != ''
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      matrix: ${{ steps.changed-files.outputs.all_changed_files }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v47
+        with:
+          dir_names: true
+          dir_names_max_depth: 2
+          dir_names_exclude_current_dir: true
+          files: "${{inputs.modules-directory}}"
+          matrix: true
+
+      - name: 'Set output in the matrix format'
+        id: set-output
+        run: echo "all_changed_files=${{ steps.changed-files.outputs.all_changed_files }}" >> "$GITHUB_OUTPUT"
+
+  check-module-tofu:
+    if: inputs.modules-directory != '' &&  needs.determine-changed-modules.outputs.matrix != '[]'
+    runs-on: ${{ inputs.runs-on }}
+    strategy:
+      matrix:
+        dir: "${{fromJson(needs.determine-changed-modules.outputs.matrix)}}"
+    needs:
+      - determine-changed-modules
+    steps:
+      - uses: actions/checkout@v6
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ inputs.tofu_version }}
+      - name: Check fmt
+        working-directory: ${{ matrix.dir }}
+        run: tofu fmt -check
+      - name: Init providers
+        working-directory: ${{ matrix.dir }}
+        run: tofu init
+      - name: Validate module
+        working-directory: ${{ matrix.dir }}
+        run: tofu validate
