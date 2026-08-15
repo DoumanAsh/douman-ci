@@ -67,7 +67,7 @@ jobs:
 
     - name: Install Wasi runtime
       run: |
-        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v36.0.2/wasmtime-v36.0.2-x86_64-linux.tar.xz > wasmtime.tar.xz
+        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v47.0.3/wasmtime-v47.0.3-x86_64-linux.tar.xz > wasmtime.tar.xz
         mkdir $HOME/wasmtime
         tar -xf wasmtime.tar.xz -C $HOME/wasmtime --strip-components 1
         echo "$HOME/wasmtime/" >> $GITHUB_PATH
