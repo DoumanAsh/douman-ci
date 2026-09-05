@@ -36,6 +36,12 @@ on:
         type: boolean
         default: false
         description: "Specifies whether to perform build with no default features in addition to default"
+      # Perform all features run
+      cargo-all-features:
+        required: false
+        type: boolean
+        default: false
+        description: "Specifies whether to perform build with all features enabled in addition to default"
       # Enables valgrind
       valgrind:
         required: false
@@ -112,6 +118,10 @@ jobs:
     - name: Check build no features
       if: inputs.cargo-no-features == true
       run: cargo check --no-default-features
+
+    - name: Check build ALL features
+      if: inputs.cargo-all-features == true
+      run: cargo check --all-features
 
     - name: Check build
       run: cargo check ${{ steps.vars.outputs.CARGO_ARGS }}
