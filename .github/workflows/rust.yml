@@ -113,7 +113,7 @@ jobs:
       if: inputs.min-rustc-version != ''
       run: |
         rustup install ${{ inputs.min-rustc-version }}
-        cargo +${{ inputs.min-rustc-version }} check
+        cargo +${{ inputs.min-rustc-version }} check ${{ steps.vars.outputs.CARGO_ARGS }}
 
     - name: Check build no features
       if: inputs.cargo-no-features == true
