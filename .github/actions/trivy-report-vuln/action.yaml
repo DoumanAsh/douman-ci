@@ -41,7 +41,7 @@ runs:
         version: latest
         exit-code: 0
 
-    - name: Generate ${{ inputs.name }}.html fragment
+    - name: Generate ${{ inputs.image_name }}.html fragment
       shell: bash
       env:
         TRIVY_HTML: ${{ inputs.image_name }}.html
@@ -62,7 +62,7 @@ runs:
         jq -r '.Results[]?.Vulnerabilities[]?|select(.Severity != null)|"<tr><td>\(.Severity//""|@html)</td><td>\(.PkgName//""|@html)</td><td>\(.InstalledVersion//""|@html)</td><td>\(.FixedVersion//""|@html)</td><td>\(.Status//""|@html)</td><td>\(.Title//""|@html)</td></tr>"' "$TRIVY_JSON" >> $TRIVY_HTML
         echo '</tbody></table>' >> $TRIVY_HTML
 
-    - name: Paste ${{ inputs.name }}.html report into github
+    - name: Paste ${{ inputs.image_name }}.html report into github
       if: ${{ inputs.pr_comment == 'true' }}
       uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
       with:
