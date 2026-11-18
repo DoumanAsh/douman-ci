@@ -1,0 +1,84 @@
+name: Checks docker image vulnerabilities using Trivy
+description: |
+  Setups Trivy to scan specified image reference and report vulnerabilities in summary and/or PR's comment
+
+inputs:
+  image_ref:
+    required: true
+    description: "Image to scan"
+  image_name:
+    required: true
+    description: "How to name image in output. This should be valid file name and this action will produce $image_name.html with report"
+  severity:
+    required: false
+    description: "Comma separated lsit of severities for trivy to look for"
+    default: 'LOW,MEDIUM,HIGH,CRITICAL'
+  cache:
+    required: false
+    description: "Specifies whether to cache trivy database"
+    default: 'true'
+  pr_comment:
+    required: false
+    description: "Specifies whether action is triggered by PR. Requires write permission on pull_request"
+    default: 'false'
+  pr_comment_recreate:
+    required: false
+    description: "Specifies whether to-recreate comment in PR. If true generates PR comment anew otherwise appends"
+    default: 'false'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run vulnerability scanner
+      uses: aquasecurity/trivy-action@v0.36.0
+      with:
+        image-ref: ${{ inputs.image_ref }}
+        format: 'json'
+        vuln-type: 'os,library'
+        severity: ${{ inputs.severity }}
+        cache: ${{ inputs.cache }}
+        output: ${{ inputs.image_name }}.json
+        version: latest
+        exit-code: 0
+
+    - name: Generate ${{ inputs.name }}.html fragment
+      shell: bash
+      env:
+        TRIVY_HTML: ${{ inputs.image_name }}.html
+        TRIVY_JSON: ${{ inputs.image_name }}.json
+      run: |
+        echo '<h3>Summary</h3>' >> $TRIVY_HTML
+        jq -r '
+          [.Results[]?.Vulnerabilities[]? | select(.Severity != null)] as $vulns
+          | if ($vulns | length) == 0 then
+              "<p>No vulnerabilities found ✅</p>"
+            else
+              "<p>" + ($vulns | length | tostring) + " vulnerabilities found ⚠️</p>" +
+              "<ul>" + ($vulns | group_by(.Severity) | map("<li>\(.[0].Severity): \(length)</li>") | join("")) + "</ul>"
+            end
+        ' "$TRIVY_JSON" >> $TRIVY_HTML
+        echo '<h3>Full list</h3>' >> $TRIVY_HTML
+        echo '<table><thead><tr><th>Severity</th><th>PkgName</th><th>InstalledVersion</th><th>FixedVersion</th><th>Status</th><th>Title</th></tr></thead><tbody>' >> $TRIVY_HTML
+        jq -r '.Results[]?.Vulnerabilities[]?|select(.Severity != null)|"<tr><td>\(.Severity//""|@html)</td><td>\(.PkgName//""|@html)</td><td>\(.InstalledVersion//""|@html)</td><td>\(.FixedVersion//""|@html)</td><td>\(.Status//""|@html)</td><td>\(.Title//""|@html)</td></tr>"' "$TRIVY_JSON" >> $TRIVY_HTML
+        echo '</tbody></table>' >> $TRIVY_HTML
+
+    - name: Paste ${{ inputs.name }}.html report into github
+      if: github.event_name == 'pull_request'
+      uses: marocchino/sticky-pull-request-comment@v3
+      with:
+        header: ${{ inputs.image_name }}
+        # Pass html fragment as {{{content}}}
+        path: ${{ inputs.image_name }}.html
+        # Creates new comment deleting old one
+        recreate: ${{ inputs.pr_comment_recreate }}
+        append: ${{ case(inputs.pr_comment_recreate == 'true', 'false', 'true') }}
+        message: |
+          ## Vulnerabilities report '${{ inputs.image_name }}' 🔓
+
+          {{{content}}}
+
+    - name: Generate summary
+      shell: sh
+      run: |
+        echo "### Vulnerabilities report '${{ inputs.image_name }}' 🔓" >> $GITHUB_STEP_SUMMARY
+        cat ${{ inputs.image_name }}.html >> $GITHUB_STEP_SUMMARY

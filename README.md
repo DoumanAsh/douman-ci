@@ -2,12 +2,18 @@
 
 My scripts for CI
 
-## Rust
+## Actions
+
+- [Trivy Vulnerability Report](.github/actions/trivy-report-vuln/action.yaml) - Composite action to check and report docker image vulnerabilities using Trivy.
+
+## Workflows
+
+### Rust
 
 - [General Rust check](.github/workflows/rust.yml) - General purpose workflow to perform checks for Rust projects
 - [WASM check](.github/workflows/wasm-rust.yml) - Specialized workflow to run checks under WASM environment
 - [Cross compilation check](.github/workflows/cross-rust.yml) - Specialized workflow to run checks under [cross](https://github.com/cross-rs/cross). Refer to cross's README for list of supported targets
 
-## Opentofu
+### Opentofu
 
 - [General Tofu check](.github/workflows/tofu.yml) - General purpose workflow to perform checks for opentofu modules
