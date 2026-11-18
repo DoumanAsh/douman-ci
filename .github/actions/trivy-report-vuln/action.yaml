@@ -30,7 +30,7 @@ runs:
   using: "composite"
   steps:
     - name: Run vulnerability scanner
-      uses: aquasecurity/trivy-action@v0.36.0
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 #v0.36.0
       with:
         image-ref: ${{ inputs.image_ref }}
         format: 'json'
@@ -64,7 +64,7 @@ runs:
 
     - name: Paste ${{ inputs.name }}.html report into github
       if: ${{ inputs.pr_comment == 'true' }}
-      uses: marocchino/sticky-pull-request-comment@v3
+      uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
       with:
         # Unique identity of the comment (i.e. header will recreate/append comment with the same header)
         header: ${{ inputs.image_name }}
