@@ -80,5 +80,5 @@ runs:
     - name: Generate summary
       shell: sh
       run: |
-        echo "### Vulnerabilities report '${{ inputs.image_name }}' 🔓" >> $GITHUB_STEP_SUMMARY
+        echo "## Vulnerabilities report '${{ inputs.image_name }}' 🔓" >> $GITHUB_STEP_SUMMARY
         cat ${{ inputs.image_name }}.html >> $GITHUB_STEP_SUMMARY
