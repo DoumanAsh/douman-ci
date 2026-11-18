@@ -11,7 +11,7 @@ inputs:
     description: "How to name image in output. This should be valid file name and this action will produce $image_name.html with report"
   severity:
     required: false
-    description: "Comma separated lsit of severities for trivy to look for"
+    description: "Comma separated list of severities for trivy to look for"
     default: 'LOW,MEDIUM,HIGH,CRITICAL'
   cache:
     required: false
@@ -63,9 +63,10 @@ runs:
         echo '</tbody></table>' >> $TRIVY_HTML
 
     - name: Paste ${{ inputs.name }}.html report into github
-      if: github.event_name == 'pull_request'
+      if: ${{ inputs.pr_comment == 'true' }}
       uses: marocchino/sticky-pull-request-comment@v3
       with:
+        # Unique identity of the comment (i.e. header will recreate/append comment with the same header)
         header: ${{ inputs.image_name }}
         # Pass html fragment as {{{content}}}
         path: ${{ inputs.image_name }}.html
