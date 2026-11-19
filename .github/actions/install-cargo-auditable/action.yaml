@@ -1,0 +1,28 @@
+name: Install cargo-auditable
+description: |
+  Downloads cargo-auditable and installs into $CARGO_HOME
+
+inputs:
+  version:
+    required: false
+    description: "Version to install. Defaults to 0.7.7"
+    default: "0.7.7"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install cargo-auditable:${{ inputs.image_name }}.html (Unix)
+      shell: sh
+      if: runner.os != 'Windows'
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        curl --proto '=https' --tlsv1.2 -LsSf https://github.com/rust-secure-code/cargo-auditable/releases/download/v$VERSION/cargo-auditable-installer.sh | sh
+
+    - name: Install cargo-auditable:${{ inputs.image_name }}.html (Windows)
+      shell: powershell
+      if: runner.os == 'Windows'
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        powershell -ExecutionPolicy Bypass -c "irm https://github.com/rust-secure-code/cargo-auditable/releases/download/v0.7.7/cargo-auditable-installer.ps1 | iex"
