@@ -82,6 +82,7 @@ runs:
                 Licenses: ((.Licenses // []) | join(", "))
               }
           ]
+          | unique_by(.Name + "|" + .Version)
           | sort_by(.Name, .Version)
           | .[]
           | "<tr>"
