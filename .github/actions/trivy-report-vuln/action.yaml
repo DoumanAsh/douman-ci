@@ -69,7 +69,7 @@ runs:
 
         echo '<details>' >> $TRIVY_HTML
         echo '<summary>Dependency list</summary>' >> $TRIVY_HTML
-        echo '<table><thead><tr><th>Name</th><th>Version</th><th>Layer</th><th>Type</th><th>Arch</th><th>Licenses</th></tr></thead><tbody>' >> $TRIVY_HTML
+        echo '<table><thead><tr><th>Name</th><th>Version</th><th>Type</th><th>Arch</th><th>Licenses</th></tr></thead><tbody>' >> $TRIVY_HTML
         jq -r '
           [ .Results[]? as $r
             | $r.Packages[]?
@@ -77,12 +77,6 @@ runs:
             | {
                 Name: .Name,
                 Version: (.Version // ""),
-                Layer: (
-                  if .Layer.CreatedBy and .Layer.CreatedBy != "" then .Layer.CreatedBy
-                  elif .Layer.DiffID then (.Layer.DiffID | .[0:19] + "…")
-                  else ""
-                  end
-                ),
                 Type: ($r.Type // ""),
                 Arch: (.Arch // ""),
                 Licenses: ((.Licenses // []) | join(", "))
@@ -93,7 +87,6 @@ runs:
           | "<tr>"
             + "<td>\(.Name|@html)</td>"
             + "<td>\(.Version|@html)</td>"
-            + "<td>\(.Layer|@html)</td>"
             + "<td>\(.Type|@html)</td>"
             + "<td>\(.Arch|@html)</td>"
             + "<td>\(.Licenses|@html)</td>"
