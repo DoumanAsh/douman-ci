@@ -21,6 +21,10 @@ inputs:
     required: false
     description: "Specifies whether action is triggered by PR. Requires write permission on pull_request"
     default: 'false'
+  pr_comment_header:
+    required: false
+    description: "Specifies unique name of the comment to identify comment for the purpose of recreation/appending. Defaults to image_name"
+    default: 'false'
   pr_comment_recreate:
     required: false
     description: "Specifies whether to-recreate comment in PR. If true generates PR comment anew otherwise appends"
@@ -67,7 +71,7 @@ runs:
       uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
       with:
         # Unique identity of the comment (i.e. header will recreate/append comment with the same header)
-        header: ${{ inputs.image_name }}
+        header: ${{ case(inputs.pr_comment_header == '', inputs.image_name, inputs.pr_comment_header) }}
         # Pass html fragment as {{{content}}}
         path: ${{ inputs.image_name }}.html
         # Creates new comment deleting old one
