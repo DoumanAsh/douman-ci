@@ -42,7 +42,8 @@ runs:
         severity: ${{ inputs.severity }}
         cache: ${{ inputs.cache }}
         output: ${{ inputs.image_name }}.json
-        version: latest
+        version: 'latest'
+        list-all-pkgs: true
         exit-code: 0
 
     - name: Generate ${{ inputs.image_name }}.html fragment
@@ -61,10 +62,45 @@ runs:
               "<ul>" + ($vulns | group_by(.Severity) | map("<li>\(.[0].Severity): \(length)</li>") | join("")) + "</ul>"
             end
         ' "$TRIVY_JSON" >> $TRIVY_HTML
-        echo '<h3>Full list</h3>' >> $TRIVY_HTML
+        echo '<h3>Vulnerability list</h3>' >> $TRIVY_HTML
         echo '<table><thead><tr><th>Severity</th><th>PkgName</th><th>InstalledVersion</th><th>FixedVersion</th><th>Status</th><th>Title</th></tr></thead><tbody>' >> $TRIVY_HTML
         jq -r '.Results[]?.Vulnerabilities[]?|select(.Severity != null)|"<tr><td>\(.Severity//""|@html)</td><td>\(.PkgName//""|@html)</td><td>\(.InstalledVersion//""|@html)</td><td>\(.FixedVersion//""|@html)</td><td>\(.Status//""|@html)</td><td>\(.Title//""|@html)</td></tr>"' "$TRIVY_JSON" >> $TRIVY_HTML
         echo '</tbody></table>' >> $TRIVY_HTML
+
+        echo '<details>' >> $TRIVY_HTML
+        echo '<summary>Dependency list</summary>' >> $TRIVY_HTML
+        echo '<table><thead><tr><th>Name</th><th>Version</th><th>Layer</th><th>Type</th><th>Arch</th><th>Licenses</th></tr></thead><tbody>' >> $TRIVY_HTML
+        jq -r '
+          [ .Results[]? as $r
+            | $r.Packages[]?
+            | select(.Name != null)
+            | {
+                Name: .Name,
+                Version: (.Version // ""),
+                Layer: (
+                  if .Layer.CreatedBy and .Layer.CreatedBy != "" then .Layer.CreatedBy
+                  elif .Layer.DiffID then (.Layer.DiffID | .[0:19] + "…")
+                  else ""
+                  end
+                ),
+                Type: ($r.Type // ""),
+                Arch: (.Arch // ""),
+                Licenses: ((.Licenses // []) | join(", "))
+              }
+          ]
+          | sort_by(.Name, .Version)
+          | .[]
+          | "<tr>"
+            + "<td>\(.Name|@html)</td>"
+            + "<td>\(.Version|@html)</td>"
+            + "<td>\(.Layer|@html)</td>"
+            + "<td>\(.Type|@html)</td>"
+            + "<td>\(.Arch|@html)</td>"
+            + "<td>\(.Licenses|@html)</td>"
+            + "</tr>"
+        ' "$TRIVY_JSON" >> $TRIVY_HTML
+        echo '</tbody></table>' >> $TRIVY_HTML
+        echo '</details>' >> $TRIVY_HTML
 
     - name: Paste ${{ inputs.image_name }}.html report into github
       if: ${{ inputs.pr_comment == 'true' }}
