@@ -13,6 +13,7 @@ My scripts for CI
 - [General Rust check](.github/workflows/rust.yml) - General purpose workflow to perform checks for Rust projects. [Example](https://github.com/DoumanAsh/str-buf/blob/d5a185ce83ee414a045c533980fb57adf4d5c524/.github/workflows/rust.yml#L21)
 - [WASM check](.github/workflows/wasm-rust.yml) - Specialized workflow to run checks under WASM environment. [Example](https://github.com/DoumanAsh/xxhash-rust/blob/a8108b485f612f20d4bca7500c89f1b0be140971/.github/workflows/rust.yml#L112)
 - [Cross compilation check](.github/workflows/cross-rust.yml) - Specialized workflow to run checks under [cross](https://github.com/cross-rs/cross). Refer to cross's README for list of supported targets. [Example](https://github.com/DoumanAsh/xxhash-rust/blob/a8108b485f612f20d4bca7500c89f1b0be140971/.github/workflows/rust.yml#L133)
+- [Rust Release workflow](.github/workflows/release-rust.yaml) - General purpose workflow to release Rust binaries for Windows, Mac and Linux (including musl)
 
 ### Opentofu
 

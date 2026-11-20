@@ -1,0 +1,444 @@
+name: Release Rust binaries
+
+env:
+  CARG_AUDITABLE_VERSION: "0.7.7"
+
+on:
+  workflow_call:
+    secrets:
+      GH_TOKEN:
+        required: true
+        description: "Github token to use to upload release. Value of $GITHUB_TOKEN is sufficient if you give contents: write permissions to your workflow"
+    inputs:
+      file_suffix:
+        required: false
+        type: string
+        default: "release-"
+        description: "Specifies archive file name suffix to generate. Defaults to `release-`"
+      github_repositroy:
+        required: true
+        type: string
+        description: "Repository name where to upload release. Value of $GITHUB_REPOSITORY environment variable is usually good choice"
+      github_release_event_path:
+        required: true
+        type: string
+        description: "Value of $GITHUB_EVENT_PATH with release id as `.release.id`"
+      github_upload_release:
+        required: false
+        type: boolean
+        default: true
+        description: "Specifies whether to upload release. Defaults true"
+
+      windows:
+        required: false
+        type: boolean
+        default: true
+        description: "Specifies whether to build Windows binaries. Default `true`"
+      linux-gnu:
+        required: false
+        type: boolean
+        default: true
+        description: "Specifies whether to build Linux GNU binaries. Default `true`"
+      linux-musl:
+        required: false
+        type: boolean
+        default: true
+        description: "Specifies whether to build Linux Musl binaries. Default `true`"
+      macos:
+        required: false
+        type: boolean
+        default: true
+        description: "Specifies whether to build MacOS binaries. Default `true`"
+
+      cargo-binaries:
+        required: true
+        type: string
+        default: ""
+        description: "List of binaries to release. Cannot be empty"
+      cargo-features:
+        required: false
+        type: string
+        default: ""
+        description: "Comma separated list of cargo features to enable"
+      cargo-features-win:
+        required: false
+        type: string
+        default: ""
+        description: "Comma separated list of cargo features to enable for Windows targets"
+      cargo-features-macos:
+        required: false
+        type: string
+        default: ""
+        description: "Comma separated list of cargo features to enable for MacOS targets"
+      cargo-features-linux:
+        required: false
+        type: string
+        default: ""
+        description: "Comma separated list of cargo features to enable for Linux targets"
+
+      win-init:
+        required: false
+        type: string
+        default: ""
+        description: "Commands to execute before running build on Windows"
+      mac-init:
+        required: false
+        type: string
+        default: ""
+        description: "Commands to execute before running build on MacOS"
+      linux-gnu-init:
+        required: false
+        type: string
+        default: ""
+        description: "Commands to execute before running build on Linux GNU"
+      linux-musl-init:
+        required: false
+        type: string
+        default: ""
+        description: "Commands to execute before running build on Linux Musl"
+
+jobs:
+  prepare-build:
+    runs-on: ubuntu-latest
+    outputs:
+      bins_list: ${{ steps.cargo_flags.outputs.bins_list }}
+      cargo_bins: ${{ steps.cargo_flags.outputs.bins }}
+      cargo_features_win: ${{ steps.cargo_flags.outputs.win }}
+      cargo_features_mac: ${{ steps.cargo_flags.outputs.mac }}
+      cargo_features_linux: ${{ steps.cargo_flags.outputs.linux }}
+    steps:
+      - name: Determine build flags
+        id: cargo_flags
+        shell: python
+        run: |
+          from sys import exit
+          from os import environ
+          from re import compile as re_compile
+
+          bins_re = re_compile(r'[,\s]+')
+          bins = list(filter(None, bins_re.split("${{ inputs.cargo-binaries }}".strip())))
+          bins_list = ",".join(bins)
+          bins_flags = "--bin " + "--bin".join(bins)
+
+          common = "${{ inputs.cargo-features }}".strip()
+          with open(environ['GITHUB_OUTPUT'], 'a') as github_output:
+            win_features = "${{ inputs.cargo-features-win }}".strip()
+            mac_features = "${{ inputs.cargo-features-mac }}".strip()
+            linux_features = "${{ inputs.cargo-features-linux }}".strip()
+            if common:
+              win_features = ",".join(win_features, common)
+              mac_features = ",".join(mac_features, common)
+              linux_features = ",".join(linux_features, common)
+
+            github_output.write(f"bins={bins_flags}\n")
+            github_output.write(f"bins_list={bins_list}\n")
+            if win_features:
+              print(f"::notice::Run with following Windows features={win_features}")
+              github_output.write(f"win=--features {win_features}\n")
+            if mac_features:
+              print(f"::notice::Run with following MacOS features={mac_features}")
+              github_output.write(f"mac=--features {mac_features}\n")
+            if linux_features:
+              print(f"::notice::Run with following Linux features={linux_features}")
+              github_output.write(f"linux=--features {linux_features}\n")
+
+          with open(environ['GITHUB_STEP_SUMMARY'], 'a') as github_summary:
+            github_summary.write("## Release Rust binaries\n")
+            github_summary.write("### Build features\n")
+            github_summary.write(f"- Windows: {win_features}\n")
+            github_summary.write(f"- MacOS: {win_features}\n")
+            github_summary.write(f"- Linux: {linux_features}\n")
+
+            github_summary.write("### Build artifacts\n")
+            for bin in bins:
+              if bin:
+                github_summary.write(f"- {bin}\n")
+
+          if not bins:
+            print("::error::No binaries specified to build")
+            exit(1)
+
+  release-rust-win:
+    needs: prepare-build
+    runs-on: windows-latest
+    if: ${{ inputs.windows }}
+    env:
+      NAME_SUFFIX: ${{ inputs.file_suffix }}
+      BINS: ${{ needs.prepare-build.outputs.bins_list }}
+      CARGO_FEATURE_SELECT: ${{ needs.prepare-build.outputs.cargo_features_win }}
+      CARGO_BINS: ${{ needs.prepare-build.outputs.cargo_bins }}
+      TARGETS: "x86_64-pc-windows-msvc aarch64-pc-windows-msvc"
+    steps:
+    - uses: actions/checkout@v7
+    - name: Install/Update Rust
+      if: runner.os == 'Windows'
+      run: |
+        if (Get-Command "rustup" -ErrorAction SilentlyContinue) {
+            rustup update
+        } else {
+            Invoke-WebRequest https://static.rust-lang.org/rustup/dist/i686-pc-windows-gnu/rustup-init.exe -OutFile rustup-init.exe
+            ./rustup-init.exe -y --profile minimal --default-toolchain stable
+            echo ::add-path::%USERPROFILE%\.cargo\bin
+        }
+        powershell -ExecutionPolicy Bypass -c "irm https://github.com/rust-secure-code/cargo-auditable/releases/download/v${{ env.CARG_AUDITABLE_VERSION }}/cargo-auditable-installer.ps1 | iex"
+        foreach ($TARGET in (-split $env:TARGETS)) {
+          rustup target add $TARGET
+        }
+    - name: Determine build features
+      shell: python
+      run: |
+        import subprocess
+        from os import environ
+        rustc_version = subprocess.run(["rustc", "--version"], capture_output=True, text=True).stdout
+        cargo_version = subprocess.run(["cargo", "--version"], capture_output=True, text=True).stdout
+        with open(environ['GITHUB_STEP_SUMMARY'], 'a') as github_summary:
+          github_summary.write("## Release parameters\n")
+          github_summary.write(f"- Features: {environ['CARGO_FEATURE_SELECT']}\n")
+          github_summary.write(f"- Rust version: {rustc_version}\n")
+          github_summary.write(f"- Cargo version: {cargo_version}\n")
+          github_summary.write(f"- Targets: {environ['TARGETS']}\n")
+    - name: Init
+      if: inputs.win-init != ''
+      run: ${{ inputs.win-init }}
+    - name: Rust build release
+      run: |
+        foreach ($TARGET in (-split $env:TARGETS)) {
+          $bins = $env:BINS -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+          $x86_64_file_list = @()
+          foreach ($file in $bins) {
+            $file_name = Split-Path $file -Leaf
+            $x86_64_file_list += Join-Path "target/$TARGET/release" "$file_name.exe"
+          }
+          Invoke-Expression "cargo auditable build --release --target $TARGET $env:CARGO_FEATURE_SELECT $env:CARGO_BINS"
+          echo "::notice::Archive $x86_64_file_list into $env:NAME_SUFFIX$TARGET.zip"
+          Compress-Archive -Path $x86_64_file_list -DestinationPath "$env:NAME_SUFFIX$TARGET.zip"
+        }
+
+    - name: Upload release
+      if: ${{ inputs.github_upload_release == 'true' }}
+      env:
+        GITHUB_EVENT_PATH: ${{ inputs.github_release_event_path }}
+      run: |
+        foreach ($TARGET in (-split $env:TARGETS)) {
+          $headers = @{"Authorization"="token ${{ secrets.GH_TOKEN }}" };
+          $event = Get-Content -Raw -Path $env:GITHUB_EVENT_PATH | ConvertFrom-Json;
+          $url = "https://uploads.github.com/repos/$(${{inputs.github_repositroy}})/releases/$($event.release.id)/assets?name=$env:NAME_SUFFIX$TARGET.zip";
+          Invoke-WebRequest -Headers $headers -Method POST -Infile $env:NAME_SUFFIX$TARGET.zip -ContentType 'application/zip' -Uri $url
+        }
+
+  release-rust-macos:
+    needs: prepare-build
+    runs-on: macos-latest
+    if: ${{ inputs.macos }}
+    env:
+      NAME_SUFFIX: ${{ inputs.file_suffix }}
+      BINS: ${{ needs.prepare-build.outputs.bins_list }}
+      CARGO_FEATURE_SELECT: ${{ needs.prepare-build.outputs.cargo_features_mac }}
+      CARGO_BINS: ${{ needs.prepare-build.outputs.cargo_bins }}
+      TARGETS: "x86_64-apple-darwin aarch64-apple-darwin"
+    steps:
+    - uses: actions/checkout@v7
+    - name: Install/Update Rust
+      run: |
+        if rustup --version >/dev/null 2>&1; then
+            rustup update
+        else
+             curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
+             echo ::add-path::$HOME/.cargo/bin
+        fi
+        curl --proto '=https' --tlsv1.2 -LsSf https://github.com/rust-secure-code/cargo-auditable/releases/download/v${{ env.CARG_AUDITABLE_VERSION }}/cargo-auditable-installer.sh | sh
+        for TARGET in $TARGETS; do
+          rustup target add $TARGET
+        done
+    - name: Determine build features
+      shell: python
+      run: |
+        import subprocess
+        from os import environ
+        rustc_version = subprocess.run(["rustc", "--version"], capture_output=True, text=True).stdout
+        cargo_version = subprocess.run(["cargo", "--version"], capture_output=True, text=True).stdout
+        with open(environ['GITHUB_STEP_SUMMARY'], 'a') as github_summary:
+          github_summary.write("## Release parameters\n")
+          github_summary.write(f"- Features: {environ['CARGO_FEATURE_SELECT']}\n")
+          github_summary.write(f"- Rust version: {rustc_version}\n")
+          github_summary.write(f"- Cargo version: {cargo_version}\n")
+          github_summary.write(f"- Targets: {environ['TARGETS']}\n")
+    - name: Init
+      if: inputs.mac-init != ''
+      run: ${{ inputs.mac-init }}
+    - name: Rust build release
+      run: |
+        for TARGET in $TARGETS; do
+          echo "::notice::Build $TARGET binary"
+          files=""
+          for BIN in $BINS; do
+              if [ -n "$BIN" ]; then
+                  files="$files target/$TARGET/release/$BIN"
+              fi
+          done
+
+          cargo auditable build --release --target $TARGET $CARGO_FEATURE_SELECT $CARGO_BINS
+          echo "::notice::Archive $files into $NAME_SUFFIX$TARGET.zip"
+          zip -j $NAME_SUFFIX$TARGET.zip $files
+        done
+
+    - name: Upload release
+      if: ${{ inputs.github_upload_release == 'true' }}
+      run: |
+        for TARGET in $TARGETS; do
+          curl -f -sSL -XPOST \
+            -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+            -H "Content-Type: application/zip" \
+            --upload-file "$NAME_SUFFIX$TARGET.zip" \
+            "https://uploads.github.com/repos/${{inputs.github_repositroy}}/releases/$(jq --raw-output '.release.id' ${{inputs.github_release_event_path}})/assets?name=NAME_SUFFIX$TARGET.zip"
+        done
+
+  release-rust-linux-gnu:
+    needs: prepare-build
+    runs-on: ubuntu-latest
+    if: ${{ inputs.linux-musl }}
+    env:
+      NAME_SUFFIX: ${{ inputs.file_suffix }}
+      BINS: ${{ needs.prepare-build.outputs.bins_list }}
+      CARGO_FEATURE_SELECT: ${{ needs.prepare-build.outputs.cargo_features_linux }}
+      CARGO_BINS: ${{ needs.prepare-build.outputs.cargo_bins }}
+      TARGETS: "x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu"
+      DOCKER_SCRIPT: ${{ inputs.linux-gnu-init }}
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v4
+      with:
+        platforms: amd64,arm64
+
+    - name: Determine build features
+      shell: python
+      run: |
+        import subprocess
+        from os import environ
+        docker_args = ["docker", "run", "--rm"]
+        docker_fedora = docker_args + ["ghcr.io/doumanash/rust-fedora:rustup-latest"]
+        gnu_rustc_version = subprocess.run(docker_fedora + ["rustc", "--version"], capture_output=True, text=True).stdout
+        gnu_cargo_version = subprocess.run(docker_fedora + ["cargo", "--version"], capture_output=True, text=True).stdout
+        with open(environ['GITHUB_STEP_SUMMARY'], 'a') as github_summary:
+          github_summary.write("## Release parameters\n")
+          github_summary.write(f"- Features: {environ['CARGO_FEATURE_SELECT']}\n")
+          github_summary.write(f"- GNU Rust version: {gnu_rustc_version}\n")
+          github_summary.write(f"- GNU Cargo version: {gnu_cargo_version}\n")
+          github_summary.write(f"- Targets: {environ['TARGETS']}\n")
+
+    - name: Rust build release
+      run: |
+        for TARGET in $TARGETS; do
+          echo "::notice::Build $TARGET binary"
+          arch=$(echo "$TARGET" | cut -d"-" -f1)
+          case "$arch" in \
+              x86_64) docker_arch='amd64' ;; \
+              aarch64) docker_arch='arm64' ;; \
+              *) echo >&2 "unsupported architecture: $arch"; exit 1 ;; \
+          esac; \
+
+          files=""
+          for BIN in $BINS; do
+              if [ -n "$BIN" ]; then
+                  files="$files target/$TARGET/release/$BIN"
+              fi
+          done
+
+          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace --platform linux/$docker_arch ghcr.io/doumanash/rust-fedora:rustup-latest sh -c "
+            set -e
+
+            $DOCKER_SCRIPT
+
+            cargo auditable build --release --target $TARGET $CARGO_FEATURE_SELECT $CARGO_BINS
+          "
+
+          echo "::notice::Archive $files into $NAME_SUFFIX$TARGET.zip"
+          zip -j $NAME_SUFFIX$TARGET.zip $files
+        done
+
+    - name: Upload release
+      if: ${{ inputs.github_upload_release == 'true' }}
+      run: |
+        for TARGET in $TARGETS; do
+          curl -f -sSL -XPOST \
+            -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+            -H "Content-Type: application/zip" \
+            --upload-file "$NAME_SUFFIX$TARGET.zip" \
+            "https://uploads.github.com/repos/${{inputs.github_repositroy}}/releases/$(jq --raw-output '.release.id' ${{inputs.github_release_event_path}})/assets?name=NAME_SUFFIX$TARGET.zip"
+        done
+
+  release-rust-linux-musl:
+    needs: prepare-build
+    runs-on: ubuntu-latest
+    if: ${{ inputs.linux-musl }}
+    env:
+      NAME_SUFFIX: ${{ inputs.file_suffix }}
+      BINS: ${{ needs.prepare-build.outputs.bins_list }}
+      CARGO_FEATURE_SELECT: ${{ needs.prepare-build.outputs.cargo_features_linux }}
+      CARGO_BINS: ${{ needs.prepare-build.outputs.cargo_bins }}
+      TARGETS: "x86_64-unknown-linux-musl aarch64-unknown-linux-musl"
+      DOCKER_SCRIPT: ${{inputs.linux-musl-init}}
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v4
+      with:
+        platforms: amd64,arm64
+
+    - name: Determine build features
+      shell: python
+      run: |
+        import subprocess
+        from os import environ
+        docker_args = ["docker", "run", "--rm"]
+        docker_musl = docker_args + ["ghcr.io/doumanash/rust-musl:latest"]
+        musl_rustc_version = subprocess.run(docker_musl + ["rustc", "--version"], capture_output=True, text=True).stdout
+        musl_cargo_version = subprocess.run(docker_musl + ["cargo", "--version"], capture_output=True, text=True).stdout
+        with open(environ['GITHUB_STEP_SUMMARY'], 'a') as github_summary:
+          github_summary.write("## Release parameters\n")
+          github_summary.write(f"- Features: {environ['CARGO_FEATURE_SELECT']}\n")
+          github_summary.write(f"- Musl Rust version: {musl_rustc_version}\n")
+          github_summary.write(f"- Musl Cargo version: {musl_cargo_version}\n")
+          github_summary.write(f"- Targets: {environ['TARGETS']}\n")
+
+    - name: Rust build release
+      run: |
+        for TARGET in $TARGETS; do
+          echo "::notice::Build $TARGET binary"
+          arch=$(echo "$TARGET" | cut -d"-" -f1)
+          case "$arch" in \
+              x86_64) docker_arch='amd64' ;; \
+              aarch64) docker_arch='arm64' ;; \
+              *) echo >&2 "unsupported architecture: $arch"; exit 1 ;; \
+          esac; \
+
+          files=""
+          for BIN in $BINS; do
+              if [ -n "$BIN" ]; then
+                  files="$files target/$TARGET/release/$BIN"
+              fi
+          done
+
+          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace --platform linux/$docker_arch ghcr.io/doumanash/rust-musl:latest sh -c "
+            set -e
+
+            $docker_script
+
+            cargo auditable build --release --target $TARGET $CARGO_FEATURE_SELECT $CARGO_BINS
+          "
+
+          echo "::notice::Archive $files into $NAME_SUFFIX$TARGET.zip"
+          zip -j $NAME_SUFFIX$TARGET.zip $files
+        done
+
+    - name: Upload release
+      if: ${{ inputs.github_upload_release == 'true' }}
+      run: |
+        for TARGET in $TARGETS; do
+          curl -f -sSL -XPOST \
+            -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+            -H "Content-Type: application/zip" \
+            --upload-file "$NAME_SUFFIX$TARGET.zip" \
+            "https://uploads.github.com/repos/${{inputs.github_repositroy}}/releases/$(jq --raw-output '.release.id' ${{inputs.github_release_event_path}})/assets?name=NAME_SUFFIX$TARGET.zip"
+        done
