@@ -126,9 +126,9 @@ jobs:
             mac_features = "${{ inputs.cargo-features-mac }}".strip()
             linux_features = "${{ inputs.cargo-features-linux }}".strip()
             if common:
-              win_features = ",".join(win_features, common)
-              mac_features = ",".join(mac_features, common)
-              linux_features = ",".join(linux_features, common)
+              win_features = ",".join([win_features, common]) if win_features else common
+              mac_features = ",".join([mac_features, common]) if mac_features else common
+              linux_features = ",".join([linux_features, common]) if linux_features else common
 
             github_output.write(f"bins={bins_flags}\n")
             github_output.write(f"bins_list={bins_list}\n")
