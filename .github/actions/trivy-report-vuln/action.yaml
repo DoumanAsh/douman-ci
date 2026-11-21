@@ -3,9 +3,14 @@ description: |
   Setups Trivy to scan specified image reference and report vulnerabilities in summary and/or PR's comment
 
 inputs:
+  image_tar:
+    required: false
+    description: "Image tar to scan"
+    default: ''
   image_ref:
-    required: true
+    required: false
     description: "Image to scan"
+    default: ''
   image_name:
     required: true
     description: "How to name image in output. This should be valid file name and this action will produce $image_name.html with report"
@@ -36,6 +41,7 @@ runs:
     - name: Run vulnerability scanner
       uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 #v0.36.0
       with:
+        input: ${{ inputs.image_tar }}
         image-ref: ${{ inputs.image_ref }}
         format: 'json'
         vuln-type: 'os,library'
