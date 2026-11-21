@@ -10,7 +10,7 @@ My scripts for CI
 
 ### Containers
 
-- [Container image release](.github/workflows/release-container.yaml) - General purpose workflow to release container image onto most well known public registries. [Example](https://github.com/DoumanAsh/nginx-sftp/blob/e079c6f657f4cf30866491e18b629e27e044ca60/.github/workflows/docker-image.yml#L24-L69)
+- [Container image release](.github/workflows/release-container.yaml) - General purpose workflow to release container image onto most well known public registries. [Example](https://github.com/DoumanAsh/rust-musl/blob/b455f7d4d87d5617a6583b3e52c8067e0a3e2acc/.github/workflows/docker-image.yml#L30-L73)
 
 ### Rust
 

@@ -18,6 +18,11 @@ on:
         type: string
         default: ""
         description: "Specifies name of the image to build"
+      annotations:
+        required: false
+        type: string
+        default: ""
+        description: "Specifies OCI annotations to attach"
       default_tag:
         required: false
         type: string
@@ -148,6 +153,7 @@ jobs:
         id: build
         uses: redhat-actions/buildah-build@v3
         with:
+          annotations: ${{ inputs.annotations }}
           containerfiles: ${{ inputs.container_file }}
           build-args: ${{ inputs.build_args }}
           context: ${{ inputs.context }}
