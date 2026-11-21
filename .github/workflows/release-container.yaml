@@ -216,3 +216,15 @@ jobs:
           password: ${{ secrets.QUAY_TOKEN }}
           image: ${{ steps.build.outputs.image }}
           tags: ${{ case(steps.build_done.outputs.tags == '', steps.build.outputs.tags, steps.build_done.outputs.tags) }}
+
+      - name: List published tags
+        if: ${{ inputs.upload_container && ( inputs.quay_user != '' || inputs.docker_user != '' || inputs.github_user != '' ) }}
+        shell: sh
+        env:
+          TAGS: ${{ case(steps.build_done.outputs.tags == '', steps.build.outputs.tags, steps.build_done.outputs.tags) }}
+        run: |
+          echo '### Published tags' >> $GITHUB_STEP_SUMMARY
+          for TAG in $TAGS; do
+            echo "- $TAG" >> "$GITHUB_STEP_SUMMARY"
+          done
+
