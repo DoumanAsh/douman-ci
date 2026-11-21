@@ -165,14 +165,32 @@ jobs:
 
       # If user generated extra tags, then retag it using localhost to make sure we do not affect remote registries
       - name: Retag images with '${{ steps.build_done.outputs.tags }}'?
-        shell: sh
-        if: ${{ steps.build_done.outputs.tags != '' }}
+        id: retag
+        shell: python
         env:
+          DEFAULT_TAG: ${{ inputs.default_tag }}
+          IMAGE_NAME: ${{ steps.build.outputs.image }}
           NEW_TAGS: ${{ steps.build_done.outputs.tags }}
         run: |
-          for TAG in $NEW_TAGS; do
-            /usr/bin/buildah tag localhost/${{ steps.build.outputs.image-with-tag }} localhost/${{ steps.build.outputs.image }}:$TAG
-          done
+          import subprocess
+          from os import environ
+
+          default_tag = environ["DEFAULT_TAG"].strip()
+          image_name = environ["IMAGE_NAME"].strip()
+          new_tags = environ.get("NEW_TAGS", "")
+          emit_tag = False
+          if new_tags:
+            for tag in new_tags.split():
+              tag = tag.strip()
+              if tag != default_tag:
+                subprocess.run(["podman", "tag", "localhost/${{ steps.build.outputs.image-with-tag }}", f"localhost/${{ steps.build.outputs.image }}:{tag}"], capture_output=False, check=True)
+                if not emit_tag:
+                  emit_tag = True
+                  with open(environ['GITHUB_OUTPUT'], 'a') as github_output:
+                    github_output.write(f"first_tag={tag}\n")
+          if not emit_tag:
+            with open(environ['GITHUB_OUTPUT'], 'a') as github_output:
+              github_output.write("first_tag=latest\n")
 
       - name: Save ${{ steps.build.outputs.image-with-tag }} image to tarball
         run: podman save -o ${{ runner.temp }}/image.tar ${{ steps.build.outputs.image-with-tag }}
@@ -181,7 +199,7 @@ jobs:
         uses: DoumanAsh/douman-ci/.github/actions/trivy-report-vuln@master
         with:
           image_tar: "${{ runner.temp }}/image.tar"
-          image_name: "${{ steps.build.outputs.image }}-${{ inputs.default_tag }}"
+          image_name: "${{ steps.build.outputs.image }}-${{ steps.retag.outputs.first_tag }}"
           pr_comment: ${{ github.event_name == 'pull_request' }}
           pr_comment_recreate: true
           upload_json_retention_days: ${{ inputs.upload_trivy_json_retention_days }}
@@ -241,7 +259,7 @@ jobs:
           quay_registry = environ['QUAY_REGISTRY']
           quay_user = environ['QUAY_USER']
 
-          with open(environ['GITHUB_OUTPUT'], 'a') as github_output:
+          with open(environ['GITHUB_STEP_SUMMARY'], 'a') as github_output:
             github_output.write("# Published tags 📦\n")
 
             github_output.write("<table>")
