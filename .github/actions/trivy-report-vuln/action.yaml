@@ -34,6 +34,14 @@ inputs:
     required: false
     description: "Specifies whether to-recreate comment in PR. If true generates PR comment anew otherwise appends"
     default: 'false'
+  upload_json_name:
+    required: false
+    description: "Specifies name of the artifact when uploading Trivy Report. Defaults to image_name"
+    default: ''
+  upload_json_retention_days:
+    required: false
+    description: "Specifies to retain Trivy JSON for specified number of days. Defaults to 0 meaning no upload at all"
+    default: '0'
 
 runs:
   using: "composite"
@@ -51,6 +59,14 @@ runs:
         version: 'latest'
         list-all-pkgs: true
         exit-code: 0
+
+    - name: Retain ${{ inputs.image_name }}.json artifact for ${{ inputs.upload_json_retention_days }}
+      if: ${{ inputs.upload_json_retention_days != '0' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 #v7.0.2
+      with:
+        name: "${{ case(inputs.upload_json_name == '', inputs.image_name, inputs.upload_json_name) }}-trivy-json"
+        path: ${{ inputs.image_name }}.json
+        retention-days: ${{ inputs.upload_json_retention_days }}
 
     - name: Generate ${{ inputs.image_name }}.html fragment
       shell: bash
