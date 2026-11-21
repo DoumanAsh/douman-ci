@@ -122,17 +122,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-        with:
-          cache-image: false
-          platforms: ${{ inputs.platforms }}
-
       - name: Generate platform list
         id: platform
         shell: python
         env:
-          PLATFORM: ${{ inputs.platforms }}
+          PLATFORM: ${{ inputs.platform }}
           ARCHS: ${{ inputs.archs }}
         run: |
           from os import environ
@@ -140,6 +134,12 @@ jobs:
           platforms = ",".join((f"{platform}/{arch}" for arch in environ['ARCHS'].split()))
           with open(environ['GITHUB_OUTPUT'], 'a') as github_output:
             github_output.write(f"list={platforms}\n")
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          cache-image: false
+          platforms: ${{ steps.platform.outputs.list }}
 
       - name: Log into dhi.io registry
         if: ${{ inputs.dhi_login && inputs.docker_user != '' }}
