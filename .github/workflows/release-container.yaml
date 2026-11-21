@@ -1,0 +1,218 @@
+name: Release Container images
+
+on:
+  workflow_call:
+    secrets:
+      GH_TOKEN:
+        required: true
+        description: "Github token to use to upload release. Value of $GITHUB_TOKEN is sufficient if you give contents: write permissions to your workflow"
+      DOCKER_TOKEN:
+        required: false
+        description: "Docker token to use to auth into docker.io"
+      QUAY_TOKEN:
+        required: false
+        description: "Quay token to use to auth into quay.io"
+    inputs:
+      image_name:
+        required: true
+        type: string
+        default: ""
+        description: "Specifies name of the image to build"
+      default_tag:
+        required: false
+        type: string
+        default: "latest"
+        description: "Specifies the default tag of the image. Defaults to latest"
+      upload_container:
+        required: false
+        type: boolean
+        default: true
+        description: "Specifies whether to upload images. Defaults true"
+
+      github_registry:
+        required: false
+        type: string
+        default: "ghcr.io"
+        description: "Specifies github registry where to upload"
+      github_user:
+        required: false
+        type: string
+        default: ""
+        description: "Specifies github account name to use to upload image. When specified requires secret GH_TOKEN set to value that allows writing package"
+      docker_registry:
+        required: false
+        type: string
+        default: "docker.io"
+        description: "Specifies docker registry where to upload. When specified requires secret DOCKER_TOKEN to be set"
+      docker_user:
+        required: false
+        type: string
+        default: ""
+        description: "Specifies docker account name to use to upload image"
+      quay_registry:
+        required: false
+        type: string
+        default: "quay.io"
+        description: "Specifies docker registry where to upload"
+      quay_user:
+        required: false
+        type: string
+        default: ""
+        description: "Specifies quay account name to use to upload image. When specified requires secret QUAY_TOKEN to be set"
+      quay_bot_suffix:
+        required: false
+        type: string
+        default: ""
+        description: "Specifies suffix to append to username if using bot account as <user>+<suffix>"
+
+      container_file:
+        required: false
+        type: string
+        default: "Dockerfile"
+        description: "Specifies container file to use for the purpose of the build. Defaults to Dockerfile"
+      context:
+        required: false
+        type: string
+        default: "."
+        description: "Specifies context where to build container file"
+      platform:
+        required: false
+        type: string
+        default: "linux"
+        description: "Specifies platform of the image to build. Defaults to linux"
+      archs:
+        required: false
+        type: string
+        default: "amd64"
+        description: "Specifies list of architectures to build for. Defaults to amd64"
+      build_args:
+        required: false
+        type: string
+        default: ""
+        description: "Specifies build arguments when building image"
+      use_oci:
+        required: false
+        type: boolean
+        default: false
+        description: "Specifies whether to use OCI format for images"
+      post_build_script:
+        required: false
+        type: string
+        description: "Specifies the script to run after build is done. It can be used to generate tags for publishing as `tags`"
+      upload_trivy_json_retention_days:
+        required: false
+        type: string
+        default: '0'
+        description: "Specifies to retain Trivy JSON for specified number of days. Defaults to 0 meaning no upload at all"
+      dhi_login:
+        required: false
+        type: boolean
+        default: false
+        description: "Specifies whether to login into docker hardened image registry using docker credentials to facilitate use of these images"
+
+jobs:
+  publish-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          cache-image: false
+          platforms: ${{ inputs.platforms }}
+
+      - name: Generate platform list
+        id: platform
+        shell: python
+        env:
+          PLATFORM: ${{ inputs.platforms }}
+          ARCHS: ${{ inputs.archs }}
+        run: |
+          from os import environ
+          platform = environ['PLATFORM']
+          platforms = ",".join((f"{platform}/{arch}" for arch in environ['ARCHS'].split()))
+          with open(environ['GITHUB_OUTPUT'], 'a') as github_output:
+            github_output.write(f"list={platforms}\n")
+
+      - name: Log into dhi.io registry
+        if: ${{ inputs.dhi_login && inputs.docker_user != '' }}
+        uses: redhat-actions/podman-login@v2
+        with:
+          registry: dhi.io
+          username: ${{ inputs.docker_user }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Build container image
+        id: build
+        uses: redhat-actions/buildah-build@v3
+        with:
+          containerfiles: ${{ inputs.container_file }}
+          build-args: ${{ inputs.build_args }}
+          context: ${{ inputs.context }}
+          oci: ${{ inputs.use_oci }}
+          platforms: ${{ steps.platform.outputs.list }}
+          image: ${{ inputs.image_name }}
+          tags: ${{ inputs.default_tag }}
+
+      - name: Generate summary
+        id: build_done
+        shell: sh
+        run: |
+          echo '## Build container '${{ steps.build.outputs.image }}' image 🚀' >> $GITHUB_STEP_SUMMARY
+          ${{ inputs.post_build_script }}
+
+      # If user generated extra tags, then retag it using localhost to make sure we do not affect remote registries
+      - name: Retag images with '${{ steps.build_done.outputs.tags }}'?
+        shell: sh
+        if: ${{ steps.build_done.outputs.tags != '' }}
+        env:
+          NEW_TAGS: ${{ steps.build_done.outputs.tags }}
+        run: |
+          for TAG in $NEW_TAGS; do
+            /usr/bin/buildah tag localhost/${{ steps.build.outputs.image-with-tag }} localhost/${{ steps.build.outputs.image }}:$TAG
+          done
+
+      - name: Save ${{ steps.build.outputs.image-with-tag }} image to tarball
+        run: podman save -o ${{ runner.temp }}/image.tar ${{ steps.build.outputs.image-with-tag }}
+
+      - name: Check vulnerabilities
+        uses: DoumanAsh/douman-ci/.github/actions/trivy-report-vuln@master
+        with:
+          image_tar: "${{ runner.temp }}/image.tar"
+          image_name: "${{ steps.build.outputs.image }}-${{ inputs.default_tag }}"
+          pr_comment: ${{ github.event_name == 'pull_request' }}
+          pr_comment_recreate: true
+          upload_json_retention_days: ${{ inputs.upload_trivy_json_retention_days }}
+
+      - name: Publish containers to ${{ inputs.docker_registry }}
+        if: ${{ inputs.upload_container &&  inputs.docker_user != '' }}
+        uses: redhat-actions/push-to-registry@v3
+        with:
+          registry: ${{ inputs.docker_registry }}/${{ inputs.docker_user }}
+          username: ${{ inputs.docker_user }}
+          ## Set in repo Settings->Secrets->New repository secret
+          password: ${{ secrets.DOCKER_TOKEN }}
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ case(steps.build_done.outputs.tags == '', steps.build.outputs.tags, steps.build_done.outputs.tags) }}
+
+      - name: Publish containers to ${{ inputs.github_registry }}
+        if: ${{ inputs.upload_container && inputs.github_user != '' }}
+        uses: redhat-actions/push-to-registry@v3
+        with:
+          registry: ${{ inputs.github_registry }}/${{ inputs.github_user }}
+          username: ${{ inputs.github_user }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ case(steps.build_done.outputs.tags == '', steps.build.outputs.tags, steps.build_done.outputs.tags) }}
+
+      - name: Publish containers to ${{ inputs.quay_registry }}
+        if: ${{ inputs.upload_container && inputs.quay_user != '' }}
+        uses: redhat-actions/push-to-registry@v3
+        with:
+          registry: ${{ inputs.quay_registry }}/${{ inputs.quay_user }}
+          username: ${{ case(inputs.quay_bot_suffix == '', inputs.quay_user, format('{0}+{1}', inputs.quay_user, inputs.quay_bot_suffix)) }}
+          password: ${{ secrets.QUAY_TOKEN }}
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ case(steps.build_done.outputs.tags == '', steps.build.outputs.tags, steps.build_done.outputs.tags) }}
