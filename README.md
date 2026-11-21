@@ -8,6 +8,10 @@ My scripts for CI
 
 ## Workflows
 
+### Containers
+
+- [Container image release](.github/workflows/release-container.yml) - General purpose workflow to release container image onto most well known public registries. [Example](https://github.com/DoumanAsh/aws-kubectl-cli/blob/26f4d806decb3f1b64e4bf9c357252b5ea5e7f68/.github/workflows/container.yaml#L36-L66)
+
 ### Rust
 
 - [General Rust check](.github/workflows/rust.yml) - General purpose workflow to perform checks for Rust projects. [Example](https://github.com/DoumanAsh/str-buf/blob/d5a185ce83ee414a045c533980fb57adf4d5c524/.github/workflows/rust.yml#L21)
