@@ -199,7 +199,8 @@ jobs:
         uses: DoumanAsh/douman-ci/.github/actions/trivy-report-vuln@master
         with:
           image_tar: "${{ runner.temp }}/image.tar"
-          image_name: "${{ steps.build.outputs.image }}-${{ steps.retag.outputs.first_tag }}"
+          image_name: "${{ steps.build.outputs.image }}:${{ steps.retag.outputs.first_tag }}"
+          upload_json_name: "${{ steps.build.outputs.image }}-${{ steps.retag.outputs.first_tag }}"
           pr_comment: ${{ github.event_name == 'pull_request' }}
           pr_comment_recreate: true
           upload_json_retention_days: ${{ inputs.upload_trivy_json_retention_days }}
@@ -271,18 +272,18 @@ jobs:
             if quay_user:
               github_output.write(f'<th><a href="https://quay.io/repository/{quay_user}/{image_name}" target="_blank">{quay_registry}</a></th>')
             if github_user:
-              github_output.write(f'<th><a href="https://github.com/{github_user}/{image_name}/pkgs/container/{image_name}-sftp" target="_blank">{github_registry}</a></th>')
+              github_output.write(f'<th><a href="https://github.com/{github_user}/{image_name}/pkgs/container/{image_name}" target="_blank">{github_registry}</a></th>')
             github_output.write("</tr>")
 
             for tag in tags.split():
               github_output.write("<tr>")
               github_output.write(f"<td>{tag}</td>")
               if docker_user:
-                github_output.write(f"<td>{docker_registry}/{image_name}:{tag}</td>")
+                github_output.write(f"<td>{docker_registry}/{docker_user}/{image_name}:{tag}</td>")
               if quay_user:
-                github_output.write(f"<td>{quay_registry}/{image_name}:{tag}</td>")
+                github_output.write(f"<td>{quay_registry}/{quay_user}/{image_name}:{tag}</td>")
               if github_user:
-                github_output.write(f"<td>{github_registry}/{image_name}:{tag}</td>")
+                github_output.write(f"<td>{github_registry}/{github_user}/{image_name}:{tag}</td>")
               github_output.write("</tr>")
             github_output.write("</table>")
 

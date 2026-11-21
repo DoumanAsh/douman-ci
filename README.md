@@ -4,13 +4,13 @@ My scripts for CI
 
 ## Actions
 
-- [Trivy Vulnerability Report](.github/actions/trivy-report-vuln/action.yaml) - Composite action to check and report docker image vulnerabilities using Trivy. [Example](https://github.com/DoumanAsh/nginx-sftp/blob/c8f384ccc5502e89b3390fdbea5cf7ff5f6bf9dc/.github/workflows/docker-image.yml#L126)
+- [Trivy Vulnerability Report](.github/actions/trivy-report-vuln/action.yaml) - Composite action to check and report docker image vulnerabilities using Trivy. [Example](https://github.com/DoumanAsh/nginx-sftp/blob/3ed7a2e65538f010986a5048306151bfb4dfaa78/.github/workflows/docker-image.yml#L23-L70)
 
 ## Workflows
 
 ### Containers
 
-- [Container image release](.github/workflows/release-container.yaml) - General purpose workflow to release container image onto most well known public registries. [Example](https://github.com/DoumanAsh/aws-kubectl-cli/blob/26f4d806decb3f1b64e4bf9c357252b5ea5e7f68/.github/workflows/container.yaml#L36-L66)
+- [Container image release](.github/workflows/release-container.yaml) - General purpose workflow to release container image onto most well known public registries. [Example](https://github.com/DoumanAsh/nginx-sftp/blob/e079c6f657f4cf30866491e18b629e27e044ca60/.github/workflows/docker-image.yml#L24-L69)
 
 ### Rust
 
