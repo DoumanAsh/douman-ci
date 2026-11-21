@@ -219,12 +219,52 @@ jobs:
 
       - name: List published tags
         if: ${{ inputs.upload_container && ( inputs.quay_user != '' || inputs.docker_user != '' || inputs.github_user != '' ) }}
-        shell: sh
+        shell: python
         env:
+          IMAGE_NAME: ${{ inputs.image_name }}
           TAGS: ${{ case(steps.build_done.outputs.tags == '', steps.build.outputs.tags, steps.build_done.outputs.tags) }}
+          DOCKER_REGISTRY: ${{ inputs.docker_registry }}
+          DOCKER_USER: ${{ inputs.docker_user }}
+          GITHUB_REGISTRY: ${{ inputs.github_registry }}
+          GITHUB_USER: ${{ inputs.github_user }}
+          QUAY_REGISTRY: ${{ inputs.quay_registry }}
+          QUAY_USER: ${{ inputs.quay_user }}
         run: |
-          echo '### Published tags' >> $GITHUB_STEP_SUMMARY
-          for TAG in $TAGS; do
-            echo "- $TAG" >> "$GITHUB_STEP_SUMMARY"
-          done
+          from os import environ
+
+          image_name = environ['IMAGE_NAME']
+          tags = environ['TAGS']
+          docker_registry = environ['DOCKER_REGISTRY']
+          docker_user = environ['DOCKER_USER']
+          github_registry = environ['GITHUB_REGISTRY']
+          github_user = environ['GITHUB_USER']
+          quay_registry = environ['QUAY_REGISTRY']
+          quay_user = environ['QUAY_USER']
+
+          with open(environ['GITHUB_OUTPUT'], 'a') as github_output:
+            github_output.write("# Published tags 📦\n")
+
+            github_output.write("<table>")
+
+            github_output.write("<tr>")
+            github_output.write('<th>Tag</th>')
+            if docker_user:
+              github_output.write(f'<th><a href="https://hub.docker.com/r/{docker_user}/{image_name}" target="_blank">{docker_registry}</a></th>')
+            if quay_user:
+              github_output.write(f'<th><a href="https://quay.io/repository/{quay_user}/{image_name}" target="_blank">{quay_registry}</a></th>')
+            if github_user:
+              github_output.write(f'<th><a href="https://github.com/{github_user}/{image_name}/pkgs/container/{image_name}-sftp" target="_blank">{github_registry}</a></th>')
+            github_output.write("</tr>")
+
+            for tag in tags.split():
+              github_output.write("<tr>")
+              github_output.write(f"<td>{tag}</td>")
+              if docker_user:
+                github_output.write(f"<td>{docker_registry}/{image_name}:{tag}</td>")
+              if quay_user:
+                github_output.write(f"<td>{quay_registry}/{image_name}:{tag}</td>")
+              if github_user:
+                github_output.write(f"<td>{github_registry}/{image_name}:{tag}</td>")
+              github_output.write("</tr>")
+            github_output.write("</table>")
 
