@@ -136,10 +136,8 @@ jobs:
             github_output.write(f"list={platforms}\n")
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-        with:
-          cache-image: false
-          platforms: ${{ steps.platform.outputs.list }}
+        shell: sh
+        run: docker run --rm --privileged docker.io/tonistiigi/binfmt --install ${{ steps.platform.outputs.list }}
 
       - name: Log into dhi.io registry
         if: ${{ inputs.dhi_login && inputs.docker_user != '' }}
