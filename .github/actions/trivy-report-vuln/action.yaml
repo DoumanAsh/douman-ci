@@ -86,7 +86,29 @@ runs:
         ' "$TRIVY_JSON" >> $TRIVY_HTML
         echo '<h3>Vulnerability list</h3>' >> $TRIVY_HTML
         echo '<table><thead><tr><th>Severity</th><th>PkgName</th><th>InstalledVersion</th><th>FixedVersion</th><th>Status</th><th>Title</th></tr></thead><tbody>' >> $TRIVY_HTML
-        jq -r '.Results[]?.Vulnerabilities[]?|select(.Severity != null)|"<tr><td>\(.Severity//""|@html)</td><td>\(.PkgName//""|@html)</td><td>\(.InstalledVersion//""|@html)</td><td>\(.FixedVersion//""|@html)</td><td>\(.Status//""|@html)</td><td>\(.Title//""|@html)</td></tr>"' "$TRIVY_JSON" >> $TRIVY_HTML
+        jq -r '
+          [.Results[]?.Vulnerabilities[]?
+            | select(.Severity != null)
+          ]
+          | sort_by(
+              .Severity
+              | if   . == "CRITICAL" then 0
+                elif . == "HIGH"     then 1
+                elif . == "MEDIUM"   then 2
+                elif . == "LOW"      then 3
+                else 4                  # UNKNOWN / anything else
+                end
+            )
+          | .[]
+          | "<tr>"
+            + "<td>\(.Severity         // "" | @html)</td>"
+            + "<td>\(.PkgName          // "" | @html)</td>"
+            + "<td>\(.InstalledVersion // "" | @html)</td>"
+            + "<td>\(.FixedVersion     // "" | @html)</td>"
+            + "<td>\(.Status           // "" | @html)</td>"
+            + "<td>\(.Title            // "" | @html)</td>"
+            + "</tr>"
+        ' "$TRIVY_JSON" >> "$TRIVY_HTML"
         echo '</tbody></table>' >> $TRIVY_HTML
 
         echo '<details>' >> $TRIVY_HTML
