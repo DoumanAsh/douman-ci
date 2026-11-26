@@ -8,6 +8,11 @@ on:
         type: string
         default: ""
         description: "Comma separated list of cargo features to enable"
+      cargo-test-run:
+        required: false
+        type: boolean
+        default: true
+        description: "Specifies whether to build and run tests"
       # Additional arguments added to test invocation
       cargo-test-args:
         required: false
@@ -65,6 +70,7 @@ jobs:
              curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
              echo "$HOME/.cargo/bin" >> $GITHUB_PATH
         fi
+        rustup target add ${{ inputs.wasm-target }}
 
     - name: Rust version
       run: |
@@ -72,12 +78,12 @@ jobs:
         rustc --version
 
     - name: Install Wasi runtime
+      if: inputs.cargo-test-run == true
       run: |
         curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v47.0.3/wasmtime-v47.0.3-x86_64-linux.tar.xz > wasmtime.tar.xz
         mkdir $HOME/wasmtime
         tar -xf wasmtime.tar.xz -C $HOME/wasmtime --strip-components 1
         echo "$HOME/wasmtime/" >> $GITHUB_PATH
-        rustup target add ${{ inputs.wasm-target }}
 
     - name: Check build no features
       if: inputs.cargo-no-features == true
@@ -91,12 +97,13 @@ jobs:
       run: cargo check ${{ steps.vars.outputs.CARGO_ARGS }} --target ${{ inputs.wasm-target }}
 
     - name: Test
+      if: inputs.cargo-test-run == true
       env:
         CARGO_TARGET_WASM32_WASIP1_RUNNER: "wasmtime"
       run: cargo test ${{ steps.vars.outputs.CARGO_ARGS }} --target ${{ inputs.wasm-target }} ${{ inputs.cargo-test-args }}
 
     - name: Test with SIMD
-      if: inputs.wasm-simd == true
+      if: ${{ inputs.cargo-test-run == true && inputs.wasm-simd == true }}
       env:
         CARGO_TARGET_WASM32_WASIP1_RUNNER: "wasmtime"
         RUSTFLAGS: "-Ctarget-feature=+simd128"
